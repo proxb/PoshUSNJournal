@@ -75,11 +75,6 @@
             <Width>40</Width>
             <Alignment>Left</Alignment>
           </TableColumnHeader>
-          <TableColumnHeader>
-            <Label>FileAttributes</Label>
-            <Width>25</Width>
-            <Alignment>Left</Alignment>
-          </TableColumnHeader>
         </TableHeaders>
         <TableRowEntries>
           <TableRowEntry>
@@ -95,9 +90,6 @@
               </TableColumnItem>
               <TableColumnItem>
                 <PropertyName>Reason</PropertyName>
-              </TableColumnItem>
-              <TableColumnItem>
-                <PropertyName>FileAttributes</PropertyName>
               </TableColumnItem>
             </TableColumnItems>
           </TableRowEntry>

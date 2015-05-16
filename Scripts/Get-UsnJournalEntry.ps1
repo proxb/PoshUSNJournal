@@ -1,4 +1,5 @@
 ﻿Function Get-UsnJournalEntry {
+    [OutputType('System.Journal.UsnEntry')]
     [cmdletbinding(
         DefaultParameterSetName = '__DefaultSetName'
     )]
@@ -27,9 +28,9 @@
     $PSBoundParameters.GetEnumerator() | ForEach {
         Write-Verbose $_
     }
-    $Global:VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
+    $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
     If ($VolumeHandle) {
-        $JournalData = GetUSNJournal -VolumeHandle $VolumeHandle
+        $JournalData = Get-USNJournal -VolumeHandle $VolumeHandle
     }
     If ($JournalData) {
         Write-Verbose 'Creating buffer'
@@ -75,6 +76,7 @@
                 Write-Debug "Initial Bytes: $($AvailableBytes)"
                 While ($AvailableBytes -gt 60) {
                     $UsnEntry = NewUsnEntry -UsnRecord $UsnRecord
+                    $UsnEntry.pstypenames.insert(0,'System.Journal.UsnEntry')
                     $UsnEntry
                     $UsnRecord =  New-Object IntPtr -ArgumentList ($UsnRecord.ToInt64() + $UsnEntry.RecordLength)
                     $AvailableBytes = $AvailableBytes - $UsnEntry.RecordLength

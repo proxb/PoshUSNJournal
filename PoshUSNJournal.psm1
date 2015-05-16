@@ -87,6 +87,7 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     $EnumBuilder = $ModuleBuilder.DefineEnum('EIOControlCode', 'Public', [uint32])
     [void]$EnumBuilder.DefineLiteral('FSCTL_QUERY_USN_JOURNAL', [uint32] 0x900f4) # ([EFileDevice]::FileSystem.value__ -shl 16) -BOR (61 -shl 2) -BOR ([EMethod]::Buffered.value__ -BOR (0 -shl 14))
     [void]$EnumBuilder.DefineLiteral('FSCTL_READ_USN_JOURNAL', [uint32] 0x900bb) # ([EFileDevice]::FileSystem.value__ -shl 16) -BOR (42 -shl 2) -BOR ([EMethod]::Buffered.value__ -BOR (0 -shl 14))
+    [void]$EnumBuilder.DefineLiteral('FSCTL_ENUM_USN_DATA', [uint32] 0x900f4) # (FILE_DEVICE_FILE_SYSTEM << 16) | (FILE_ANY_ACCESS << 14) | (44 << 2) | METHOD_NEITHER
     [void]$EnumBuilder.CreateType()
     #endregion EIOControlCode Enum
 
@@ -172,9 +173,9 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
 
     #region IO_STATUS_BLOCK STRUCT
     $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
-    $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('IO_STATUS_BLOCK', $Attributes, [System.ValueType], 8)
-    [void]$STRUCT_TypeBuilder.DefineField('Status', [uint32], 'Public')
-    [void]$STRUCT_TypeBuilder.DefineField('Information', [long], 'Public')
+    $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('IO_STATUS_BLOCK', $Attributes, [System.ValueType], 1, 0x10)
+    [void]$STRUCT_TypeBuilder.DefineField('status', [UInt64], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('information', [UInt64], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion IO_STATUS_BLOCK STRUCT
 
@@ -586,91 +587,6 @@ Function OpenUSNJournal {
         $VolumeHandle
     }
 }
-Function GetUSNJournal {
-    Param ($VolumeHandle)
-    $JournalData = New-Object USN_JOURNAL_DATA
-    [long]$dwBytes=0
-    $return = [PoshChJournal]::DeviceIoControl(
-        $VolumeHandle,
-        [EIOControlCode]::FSCTL_QUERY_USN_JOURNAL,
-        [ref]$Null,
-        0,
-        [ref]$JournalData,
-        [System.Runtime.InteropServices.Marshal]::SizeOf([type][USN_JOURNAL_DATA]),
-        [ref]$dwBytes,
-        [intptr]::Zero
-    )
-    If ($Return) {
-        $JournalData
-    }
-}
-Function GetFilePath {
-    Param ([int64]$PFileRefNumber, [IntPtr]$VolumeHandle)
-
-    $OBJ_CASE_INSENSITIVE = 0x40
-    $FILE_OPEN = 0x1
-    $FILE_OPEN_FOR_BACKUP_INTENT = 0x4000
-    $FILE_OPEN_BY_FILE_ID = 0x2000
-
-    [long]$AllocationSize = 0
-    $UnicodeString = New-Object UNICODE_STRING
-    $ObjectAttributes = New-Object OBJECT_ATTRIBUTES
-    $IoStatusBlock = New-Object IO_STATUS_BLOCK
-    $FileHandle = [intptr]::Zero
-
-    $Buffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4096)
-    $RefPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(8)
-    $ObjectAttributeSize = [System.Runtime.InteropServices.Marshal]::SizeOf($ObjectAttributes)
-    $ObjAttIntPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($ObjectAttributeSize)
-
-    [System.Runtime.InteropServices.Marshal]::WriteInt64($RefPtr, $PFileRefNumber)
-    $UnicodeString.Length = 8
-    $UnicodeString.MaximumLength = 8
-    $UnicodeString.Buffer = $RefPtr
-
-    [System.Runtime.InteropServices.Marshal]::StructureToPtr($UnicodeString, $ObjAttIntPtr, $True)
-
-    $ObjectAttributes.Length = [System.Runtime.InteropServices.Marshal]::SizeOf($ObjectAttributes)
-    $ObjectAttributes.ObjectName = $ObjAttIntPtr
-    $ObjectAttributes.RootDirectory = $VolumeHandle
-    $ObjectAttributes.Attributes = $OBJ_CASE_INSENSITIVE
-
-    $Access = [System.IO.FileAccess]::Read
-    $ShareAccess = [System.IO.FileShare]::Read -BOR [System.IO.FileShare]::Write
-    $FileMode = [System.IO.FileMode]::Open
-    $Return = [PoshChJournal]::NtCreateFile(
-        [ref]$FileHandle,
-        $Access,
-        [ref]$ObjectAttributes,
-        [ref]$IoStatusBlock,
-        [ref]$AllocationSize,
-        0,
-        $ShareAccess,
-        $FILE_OPEN,
-        ($FILE_OPEN_FOR_BACKUP_INTENT -BOR $FILE_OPEN_BY_FILE_ID),
-        [intptr]::Zero,
-        0
-    )
-    If ($Return -eq 0) {
-        $Return = [PoshChJournal]::NTQueryInformationFile(
-            $FileHandle,
-            [ref]$IoStatusBlock,
-            $Buffer,
-            4096,
-            [FILE_INFORMATION_CLASS]::FileNameInformation
-        )
-        If ($Return -eq 0) {
-            $NameLength = [System.Runtime.InteropServices.Marshal]::ReadInt32($Buffer,0)
-            $BufferPtr = New-Object IntPtr -ArgumentList ($Buffer.ToInt64()+4)
-            $Path = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($BufferPtr,($NameLength/2))
-            $Path
-        }
-    }
-    [PoshChJournal]::CloseHandle($FileHandle)
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer)
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributeSize)
-    [System.Runtime.InteropServices.Marshal]::FreeHGlobal($RefPtr)
-}
 #endregion Private Helper Functions
 
 #region Load Functions
@@ -686,11 +602,12 @@ Try {
 #endregion Load Functions
 
 #region Aliases
+New-Alias -Name guj -Value Get-UsnJournal
+New-Alias -Name guje -Value Get-UsnJournalEntry
 #endregion Aliases
 
 #region Format and Type Data
-## Update-FormatData "$ScriptPath\TypeData\PoshUsnJournal.Format.ps1xml"
-## Update-TypeData "$ScriptPath\TypeData\PoshUsnJournal.Types.ps1xml"
+Update-FormatData "$ScriptPath\TypeData\PoshUsnJournal.Format.ps1xml"
 #endregion Format and Type Data
 
 Export-ModuleMember -Function *-USN* -Alias *

@@ -95,7 +95,7 @@
                     Write-Verbose 'Checking for more data'
                     While ($NextUsn -ge $JournalData.NextUsn) {
                         Start-Sleep -Milliseconds 500
-                        $JournalData = GetUSNJournal -VolumeHandle $VolumeHandle                    
+                        $JournalData = Get-USNJournal -VolumeHandle $VolumeHandle                    
                     }
                 }
                 If ($PSBoundParameters.ContainsKey('Paging')) {

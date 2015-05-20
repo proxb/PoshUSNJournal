@@ -4,7 +4,7 @@
     $JournalData = New-Object USN_JOURNAL_DATA
     [long]$dwBytes=0
     $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
-    If ($VolumeHandle -ne -1) {
+    If ($VolumeHandle -AND $VolumeHandle -ne -1) {
         $return = [PoshChJournal]::DeviceIoControl(
             $VolumeHandle,
             [EIOControlCode]::FSCTL_QUERY_USN_JOURNAL,
@@ -19,5 +19,7 @@
             $JournalData.pstypenames.insert(0,'System.Journal.UsnJournal')
             $JournalData
         }
+    } Else {
+        Write-Warning "Unable to get handle of volume <$($DriveLetter)>!"
     }
 }

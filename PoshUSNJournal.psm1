@@ -1,8 +1,8 @@
 ﻿<#
 
     TODO:
-        - Create-UsnJournal
-        - Delete-UsnJournal
+        - New-UsnJournal
+        - Remove-UsnJournal
         - Get-UsnJournalData
         - 
 #>
@@ -11,7 +11,8 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
 
  Try {
     [void][PoshChJournal]
- } Catch {
+ } 
+ Catch {
     #region Module Builder
     $Domain = [AppDomain]::CurrentDomain
     $DynAssembly = New-Object System.Reflection.AssemblyName('ChJournalAssembly')
@@ -19,7 +20,7 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('ChJournal', $False)
     #endregion Module Builder
 
-    #region Enums
+    #region Enums    
     #region GetLastErrorEnum Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('GetLastErrorEnum', 'Public', [int32])
     [void]$EnumBuilder.DefineLiteral('INVALID_HANDLE_VALUE', [int32] -1)
@@ -40,7 +41,6 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$EnumBuilder.DefineLiteral('ERROR_INVALID_USER_BUFFER', [int32] 0x6f8)
     [void]$EnumBuilder.CreateType()
     #endregion GetLastErrorEnum Enum
-
     #region USN_REASON Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('USN_REASON', 'Public', [int32])
     [void]$EnumBuilder.DefineLiteral('USN_REASON_DATA_OVERWRITE', [int32] 0x00000001)  
@@ -66,7 +66,6 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$EnumBuilder.DefineLiteral('USN_REASON_CLOSE', [int32] 0x80000000)
     [void]$EnumBuilder.CreateType()
     #endregion USN_REASON Enum
-
     #region EMethod Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('EMethod', 'Public', [uint32])
     [void]$EnumBuilder.DefineLiteral('Buffered', [uint32] 0x0)
@@ -75,22 +74,21 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$EnumBuilder.DefineLiteral('Neither', [uint32] 0x3)
     [void]$EnumBuilder.CreateType()
     #endregion EMethod Enum
-
     #region EFileDevice Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('EFileDevice', 'Public', [uint32])
     [void]$EnumBuilder.DefineLiteral('DiskFileSystem', [uint32] 0x8)
     [void]$EnumBuilder.DefineLiteral('FileSystem', [uint32] 0x9)
     [void]$EnumBuilder.CreateType()
     #endregion EFileDevice Enum
-
     #region EIOControlCode Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('EIOControlCode', 'Public', [uint32])
-    [void]$EnumBuilder.DefineLiteral('FSCTL_QUERY_USN_JOURNAL', [uint32] 0x900f4) # ([EFileDevice]::FileSystem.value__ -shl 16) -BOR (61 -shl 2) -BOR ([EMethod]::Buffered.value__ -BOR (0 -shl 14))
-    [void]$EnumBuilder.DefineLiteral('FSCTL_READ_USN_JOURNAL', [uint32] 0x900bb) # ([EFileDevice]::FileSystem.value__ -shl 16) -BOR (42 -shl 2) -BOR ([EMethod]::Buffered.value__ -BOR (0 -shl 14))
-    [void]$EnumBuilder.DefineLiteral('FSCTL_ENUM_USN_DATA', [uint32] 0x900f4) # (FILE_DEVICE_FILE_SYSTEM << 16) | (FILE_ANY_ACCESS << 14) | (44 << 2) | METHOD_NEITHER
+    [void]$EnumBuilder.DefineLiteral('FSCTL_QUERY_USN_JOURNAL', [uint32] 0x900f4)
+    [void]$EnumBuilder.DefineLiteral('FSCTL_READ_USN_JOURNAL', [uint32] 0x900bb)
+    [void]$EnumBuilder.DefineLiteral('FSCTL_ENUM_USN_DATA', [uint32] 0x900f4)
+    [void]$EnumBuilder.DefineLiteral('FSCTL_CREATE_USN_JOURNAL', [uint32] 0x900e7)
+    [void]$EnumBuilder.DefineLiteral('FSCTL_DELETE_USN_JOURNAL', [uint32] 0x900f8)
     [void]$EnumBuilder.CreateType()
     #endregion EIOControlCode Enum
-
     #region FILE_INFORMATION_CLASS Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('FILE_INFORMATION_CLASS', 'Public', [int32])
     [void]$EnumBuilder.DefineLiteral('FileDirectoryInformation', [int32] 1)
@@ -136,18 +134,17 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$EnumBuilder.DefineLiteral('FileHardLinkInformation', [int32] 46)
     [void]$EnumBuilder.CreateType()
     #endregion FILE_INFORMATION_CLASS Enum
-
     #region UsnJournalDeleteFlags Enum
     $EnumBuilder = $ModuleBuilder.DefineEnum('UsnJournalDeleteFlags', 'Public', [uint32])
-    [void]$EnumBuilder.DefineLiteral('USN_DELETE_FLAG_DELETE ', [uint32] 0x1) 
-    [void]$EnumBuilder.DefineLiteral('USN_DELETE_FLAG_NOTIFY ', [uint32] 0x2)
+    [void]$EnumBuilder.DefineLiteral('USN_DELETE_FLAG_DELETE', [uint32] 0x1) 
+    [void]$EnumBuilder.DefineLiteral('USN_DELETE_FLAG_NOTIFY', [uint32] 0x2)
     [void]$EnumBuilder.CreateType()
     #endregion UsnJournalDeleteFlags Enum
     #endregion Enums
 
     #region Structs
-    #region USN_JOURNAL_DATA STRUCT
     $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
+    #region USN_JOURNAL_DATA STRUCT
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('USN_JOURNAL_DATA', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('UsnJournalID', [long], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('FirstUsn', [long], 'Public')
@@ -158,9 +155,7 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$STRUCT_TypeBuilder.DefineField('AllocationDelta', [long], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion USN_JOURNAL_DATA STRUCT
-
     #region READ_USN_JOURNAL_DATA STRUCT
-    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('READ_USN_JOURNAL_DATA', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('StartUsn', [int64], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('ReasonMask', [int32], 'Public')
@@ -170,17 +165,13 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$STRUCT_TypeBuilder.DefineField('UsnJournalID', [long], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion READ_USN_JOURNAL_DATA STRUCT
-
     #region IO_STATUS_BLOCK STRUCT
-    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('IO_STATUS_BLOCK', $Attributes, [System.ValueType], 1, 0x10)
     [void]$STRUCT_TypeBuilder.DefineField('status', [UInt64], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('information', [UInt64], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion IO_STATUS_BLOCK STRUCT
-
     #region OBJECT_ATTRIBUTES STRUCT
-    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('OBJECT_ATTRIBUTES', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('Length', [int32], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('RootDirectory', [intptr], 'Public')
@@ -190,26 +181,20 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$STRUCT_TypeBuilder.DefineField('SecurityQualityOfService', [int32], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion OBJECT_ATTRIBUTES STRUCT
-
     #region UNICODE_STRING STRUCT
-    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('UNICODE_STRING', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('Length', [int16], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('MaximumLength', [int16], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('Buffer', [intptr], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion UNICODE_STRING STRUCT
-
-    #region POINT STRUCT
-    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
+    #region POINT STRUCT    
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('POINT', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('X', [int], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('Y', [int], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion POINT STRUCT
-
     #region USN_RECORD STRUCT
-    $Attributes = 'AutoLayout, AnsiClass, Class, Public, SequentialLayout, Sealed, BeforeFieldInit'
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('USN_RECORD', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('RecordLength', [uint32], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('MajorVersion', [uint16], 'Public')
@@ -226,6 +211,19 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$STRUCT_TypeBuilder.DefineField('FileNameOffset', [uint16], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion USN_RECORD STRUCT
+    #region CREATE_USN_JOURNAL_DATA
+    $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('CREATE_USN_JOURNAL_DATA', $Attributes, [System.ValueType], 8)
+    [void]$STRUCT_TypeBuilder.DefineField('MaximumSize', [uint64], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('AllocationData', [uint64], 'Public')
+    [void]$STRUCT_TypeBuilder.CreateType()
+    #endregion CREATE_USN_JOURNAL_DATA
+    #region CREATE_USN_JOURNAL_DATA
+    $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('DELETE_USN_JOURNAL_DATA', $Attributes, [System.ValueType], 8)
+    [void]$STRUCT_TypeBuilder.DefineField('UsnJournalID', [uint64], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('DeleteFlags', [uint32], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('Reserved', [uint32], 'Public')
+    [void]$STRUCT_TypeBuilder.CreateType()
+    #endregion CREATE_USN_JOURNAL_DATA
     #endregion Structs
 
     #region Initialize Type Builder

@@ -1,6 +1,6 @@
 ﻿Function New-UsnJournal {
     [cmdletbinding(
-        SupportShouldProcess = $True
+        SupportsShouldProcess = $True
     )]
     Param (
         [parameter()]

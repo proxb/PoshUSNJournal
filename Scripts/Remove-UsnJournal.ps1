@@ -1,6 +1,6 @@
 ﻿Function Remove-UsnJournal {
     [cmdletbinding(
-        SupportShouldProcess = $True
+        SupportsShouldProcess = $True
     )]
     Param (
         [parameter()]

@@ -1,4 +1,94 @@
 ﻿Function Get-UsnJournalEntry {
+    <#
+        .SYNOPSIS
+            Views the entries of the Usn Journal. Also allows the use of -Wait to 
+            watch incoming entries.
+
+        .DESCRIPTION
+            Views the entries of the Usn Journal. Includes full file path and also allows 
+            the use of -Wait to watch incoming entries.
+
+        .PARAMETER DriveLetter
+            Drive that will used to look at journal entries
+        
+        .PARAMETER ReasonMask
+            Possble values to use to look at various journal entries. Possible
+            values are:
+
+            USN_REASON_DATA_OVERWRITE
+            USN_REASON_DATA_EXTEND
+            USN_REASON_DATA_TRUNCATION
+            USN_REASON_NAMED_DATA_OVERWRITE
+            USN_REASON_NAMED_DATA_EXTEND
+            USN_REASON_NAMED_DATA_TRUNCATION
+            USN_REASON_FILE_CREATE
+            USN_REASON_FILE_DELETE
+            USN_REASON_EA_CHANGE
+            USN_REASON_SECURITY_CHANGE
+            USN_REASON_RENAME_OLD_NAME
+            USN_REASON_RENAME_NEW_NAME
+            USN_REASON_INDEXABLE_CHANGE
+            USN_REASON_BASIC_INFO_CHANGE
+            USN_REASON_HARD_LINK_CHANGE
+            USN_REASON_COMPRESSION_CHANGE
+            USN_REASON_ENCRYPTION_CHANGE
+            USN_REASON_OBJECT_ID_CHANGE
+            USN_REASON_REPARSE_POINT_CHANGE
+            USN_REASON_STREAM_CHANGE
+            USN_REASON_CLOSE
+
+        .PARAMETER StartUsn
+            The starting USN number to begin walking the journal. If this isn't an exact match,
+            an error will occur. It is recommended to either set this to 0 or look at the 
+            NextUSN from Get-UsnJournal to use.
+
+        .PARAMETER Tail
+            Starts watching the journal at the NextUsn number. It is best to use this
+            in conjunction with -Wait.
+
+        .PARAMETER Wait
+            This will watch for new entries in the Usn Journal once it has reached the end of the current
+            journal entries. This can be used with -Tail to begin tracking the current entries being
+            updated in the journal.
+
+        .PARAMETER Paging
+            This allows for paging of the journal entries based on the available bytes in the buffer and 
+            is not related to the available console space.
+
+        .NOTES
+            Name: Get-UsnJournalEntry
+            Author: Boe Prox
+            Version History
+                1.0 //Boe Prox
+                    -Initial Version
+
+        .OUTPUT
+            System.Journal.UsnEntry
+
+        .EXAMPLE
+            Get-UsnJournalEntry
+
+            Description
+            -----------
+            Displays all journal entries starting from the beginning of the journal.
+
+        .EXAMPLE
+            Get-UsnJournalEntry -ReasonMask USN_REASON_RENAME_OLD_NAME, USN_REASON_RENAME_NEW_NAME, USN_REASON_FILE_DELETE | 
+            Select-Object -First 5 -Property Timestamp, USN, FileName, FullName, Reason
+
+            Description
+            -----------
+            Displays all journal entries starting from the beginning of the journal that have had some sort of deletion. This highlights
+            the fullname of each file that has been updated.
+
+        .EXAMPLE
+            Get-UsnJournalEntry -Tail -Wait
+
+            Description
+            -----------
+            Starts watching the journal at the very end of the last entry and updates
+            with new entries as the journal is updated.
+    #>
     [OutputType('System.Journal.UsnEntry')]
     [cmdletbinding(
         DefaultParameterSetName = '__DefaultSetName'
@@ -7,12 +97,8 @@
         [parameter()]
         [string]$DriveLetter = 'C:',
         [parameter()]
-        [USN_REASON]$ReasonMask = @("USN_REASON_DATA_OVERWRITE", "USN_REASON_DATA_EXTEND", "USN_REASON_DATA_TRUNCATION", 
-        "USN_REASON_NAMED_DATA_OVERWRITE", "USN_REASON_NAMED_DATA_EXTEND", "USN_REASON_NAMED_DATA_TRUNCATION", "USN_REASON_FILE_CREATE", 
-        "USN_REASON_FILE_DELETE", "USN_REASON_EA_CHANGE", "USN_REASON_SECURITY_CHANGE", "USN_REASON_RENAME_OLD_NAME", 
-        "USN_REASON_RENAME_NEW_NAME", "USN_REASON_INDEXABLE_CHANGE", "USN_REASON_BASIC_INFO_CHANGE", "USN_REASON_HARD_LINK_CHANGE", 
-        "USN_REASON_COMPRESSION_CHANGE", "USN_REASON_ENCRYPTION_CHANGE", "USN_REASON_OBJECT_ID_CHANGE", "USN_REASON_REPARSE_POINT_CHANGE", 
-        "USN_REASON_STREAM_CHANGE", "USN_REASON_CLOSE"),
+        [ValidateNotNullOrEmpty()]
+        [USN_REASON]$ReasonMask,
         [parameter()]
         [int64]$StartUsn,
         [parameter(ParameterSetName='TailWait')]
@@ -27,6 +113,9 @@
     }
     $PSBoundParameters.GetEnumerator() | ForEach {
         Write-Verbose $_
+    }
+    If (-NOT $PSBoundParameters.ContainsKey('ReasonMask')) {
+        $ReasonMask = [USN_REASON]([USN_REASON].GetEnumNames())
     }
     $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
     If ($VolumeHandle) {
@@ -75,7 +164,7 @@
                 $UsnRecord =  New-Object intptr -ArgumentList ($DataBuffer.ToInt64() + $Uint64Size)
                 Write-Debug "Initial Bytes: $($AvailableBytes)"
                 While ($AvailableBytes -gt 60) {
-                    $UsnEntry = NewUsnEntry -UsnRecord $UsnRecord
+                    $UsnEntry = NewUsnEntry -UsnRecord $UsnRecord -DriveLetter $DriveLetter -VolumeHandle $VolumeHandle
                     $UsnEntry.pstypenames.insert(0,'System.Journal.UsnEntry')
                     $UsnEntry
                     $UsnRecord =  New-Object IntPtr -ArgumentList ($UsnRecord.ToInt64() + $UsnEntry.RecordLength)

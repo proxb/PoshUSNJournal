@@ -1,13 +1,4 @@
-﻿<#
-
-    TODO:
-        - New-UsnJournal
-        - Remove-UsnJournal
-        - Get-UsnJournalData
-        - 
-#>
-
-$ScriptPath = Split-Path $MyInvocation.MyCommand.Path
+﻿$ScriptPath = Split-Path $MyInvocation.MyCommand.Path
 
  Try {
     [void][PoshChJournal]
@@ -177,8 +168,8 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$STRUCT_TypeBuilder.DefineField('RootDirectory', [intptr], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('ObjectName', [intptr], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('Attributes', [int32], 'Public')
-    [void]$STRUCT_TypeBuilder.DefineField('SecurityDescriptor', [int32], 'Public')
-    [void]$STRUCT_TypeBuilder.DefineField('SecurityQualityOfService', [int32], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('SecurityDescriptor', [intptr], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('SecurityQualityOfService', [intptr], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion OBJECT_ATTRIBUTES STRUCT
     #region UNICODE_STRING STRUCT
@@ -217,13 +208,20 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     [void]$STRUCT_TypeBuilder.DefineField('AllocationData', [uint64], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
     #endregion CREATE_USN_JOURNAL_DATA
-    #region CREATE_USN_JOURNAL_DATA
+    #region DELETE_USN_JOURNAL_DATA
     $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('DELETE_USN_JOURNAL_DATA', $Attributes, [System.ValueType], 8)
     [void]$STRUCT_TypeBuilder.DefineField('UsnJournalID', [uint64], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('DeleteFlags', [uint32], 'Public')
     [void]$STRUCT_TypeBuilder.DefineField('Reserved', [uint32], 'Public')
     [void]$STRUCT_TypeBuilder.CreateType()
-    #endregion CREATE_USN_JOURNAL_DATA
+    #endregion DELETE_USN_JOURNAL_DATA
+    #region MFT_ENUM_DATA
+    $STRUCT_TypeBuilder = $ModuleBuilder.DefineType('MFT_ENUM_DATA', $Attributes, [System.ValueType], 8)
+    [void]$STRUCT_TypeBuilder.DefineField('StartFileReferenceNumber', [uint64], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('LowUsn', [uint64], 'Public')
+    [void]$STRUCT_TypeBuilder.DefineField('HighUsn', [uint64], 'Public')
+    [void]$STRUCT_TypeBuilder.CreateType()
+    #endregion MFT_ENUM_DATA
     #endregion Structs
 
     #region Initialize Type Builder
@@ -269,6 +267,7 @@ $ScriptPath = Split-Path $MyInvocation.MyCommand.Path
     $PInvokeMethod.SetCustomAttribute($SetLastErrorCustomAttribute)
     #endregion CreateFile METHOD
     #region NtCreateFile METHOD
+
     $PInvokeMethod = $TypeBuilder.DefineMethod(
         'NtCreateFile', #Method Name
         [Reflection.MethodAttributes] 'PrivateScope, Public, Static, HideBySig, PinvokeImpl', #Method Attributes
@@ -524,7 +523,9 @@ Function ConvertToUSNReason {
 Function NewUsnEntry {
     [cmdletbinding()]
     Param (
-        [intptr]$UsnRecord
+        [intptr]$UsnRecord,
+        [string]$DriveLetter,
+        [IntPtr]$VolumeHandle
     )
     #region Constants
     $FILE_ATTRIBUTE_DIRECTORY = 0x00000010
@@ -551,6 +552,7 @@ Function NewUsnEntry {
     }
     [pscustomobject]@{
         FileName = $Name
+        FullName = GetFilePath -PFileRefNumber $USN_RECORD.ParentFileReferenceNumber -VolumeHandle $VolumeHandle -DriveLetter $DriveLetter -File $Name
         TimeStamp = [DateTime]::FromFileTime($USN_RECORD.TimeStamp)
         Reason = ConvertToUsnReason $USN_RECORD.Reason
         RecordLength = $USN_RECORD.RecordLength
@@ -584,6 +586,78 @@ Function OpenUSNJournal {
     } Else {
         $VolumeHandle
     }
+}
+Function GetFilePath {
+    Param (
+        [int64]$PFileRefNumber, 
+        [IntPtr]$VolumeHandle,
+        [string]$DriveLetter,
+        [string]$File
+    )
+
+    $OBJ_CASE_INSENSITIVE = 0x40
+    $FILE_OPEN = 0x1
+    $FILE_OPEN_FOR_BACKUP_INTENT = 0x4000
+    $FILE_OPEN_BY_FILE_ID = 0x2000
+
+    [long]$AllocationSize = 0
+    $UnicodeString = New-Object UNICODE_STRING
+    $ObjectAttributes = New-Object OBJECT_ATTRIBUTES
+    $IoStatusBlock = New-Object IO_STATUS_BLOCK
+    $FileHandle = [intptr]::Zero
+
+    $Buffer = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4096)
+    $RefPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(8)
+    $ObjectAttributeSize = [System.Runtime.InteropServices.Marshal]::SizeOf($ObjectAttributes)
+    $ObjAttIntPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal($ObjectAttributeSize)
+
+    [void][System.Runtime.InteropServices.Marshal]::WriteInt64($RefPtr, $PFileRefNumber)
+    $UnicodeString.Length = 8
+    $UnicodeString.MaximumLength = 8
+    $UnicodeString.Buffer = $RefPtr
+
+    [void][System.Runtime.InteropServices.Marshal]::StructureToPtr($UnicodeString, $ObjAttIntPtr, $True)
+
+    $ObjectAttributes.Length = [System.Runtime.InteropServices.Marshal]::SizeOf($ObjectAttributes)
+    $ObjectAttributes.ObjectName = $ObjAttIntPtr
+    $ObjectAttributes.RootDirectory = $VolumeHandle
+    $ObjectAttributes.Attributes = $OBJ_CASE_INSENSITIVE
+
+    $Access = [System.IO.FileAccess]::Read
+    $ShareAccess = [System.IO.FileShare]::Read -BOR [System.IO.FileShare]::Write
+    $FileMode = [System.IO.FileMode]::Open
+    $Return = [PoshChJournal]::NtCreateFile(
+        [ref]$FileHandle,
+        $Access,
+        [ref]$ObjectAttributes,
+        [ref]$IoStatusBlock,
+        [ref]$AllocationSize,
+        0,
+        $ShareAccess,
+        $FILE_OPEN,
+        ($FILE_OPEN_FOR_BACKUP_INTENT -BOR $FILE_OPEN_BY_FILE_ID),
+        [intptr]::Zero,
+        0
+    )
+    If ($Return -eq 0) {
+        $Return = [PoshChJournal]::NTQueryInformationFile(
+            $FileHandle,
+            [ref]$IoStatusBlock,
+            $Buffer,
+            4096,
+            [FILE_INFORMATION_CLASS]::FileNameInformation
+        )
+        If ($Return -eq 0) {
+            $NameLength = [System.Runtime.InteropServices.Marshal]::ReadInt32($Buffer,0)
+            $BufferPtr = New-Object IntPtr -ArgumentList ($Buffer.ToInt64()+4)
+            $Path = [System.Runtime.InteropServices.Marshal]::PtrToStringUni($BufferPtr,($NameLength/2))
+            "{0}{1}\{2}" -f $DriveLetter,$Path,$File
+        }
+    }
+    [void][PoshChJournal]::CloseHandle($FileHandle)
+    [void][System.Runtime.InteropServices.Marshal]::FreeHGlobal($Buffer)
+    [void][System.Runtime.InteropServices.Marshal]::FreeHGlobal($ObjectAttributeSize)
+    [void][System.Runtime.InteropServices.Marshal]::FreeHGlobal($RefPtr)
 }
 #endregion Private Helper Functions
 

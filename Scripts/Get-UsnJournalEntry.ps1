@@ -119,7 +119,7 @@
     }
     $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
     If ($VolumeHandle) {
-        $JournalData = Get-USNJournal -VolumeHandle $VolumeHandle
+        $JournalData = Get-USNJournal -DriveLetter $DriveLetter
     }
     If ($JournalData) {
         Write-Verbose 'Creating buffer'
@@ -184,7 +184,7 @@
                     Write-Verbose 'Checking for more data'
                     While ($NextUsn -ge $JournalData.NextUsn) {
                         Start-Sleep -Milliseconds 500
-                        $JournalData = Get-USNJournal -VolumeHandle $VolumeHandle                    
+                        $JournalData = Get-USNJournal -DriveLetter $DriveLetter
                     }
                 }
                 If ($PSBoundParameters.ContainsKey('Paging')) {

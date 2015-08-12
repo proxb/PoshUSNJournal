@@ -1,4 +1,31 @@
 ﻿Function Get-UsnJournal {
+﻿        <#
+        .SYNOPSIS
+            Used to pull the USN Journal information
+ 
+        .DESCRIPTION
+            Used to pull the USN Journal information
+ 
+        .PARAMETER DriveLetter
+            Drive to look at USNJournal. Must be used with colon (:).
+            ex. C:
+ 
+        .NOTES
+            Name: Get-UsnJournal
+            Author: Boe Prox
+ 
+        .EXAMPLE
+            Get-UsnJournal -DriveLetter C:
+ 
+            UsnJournalID       FirstUsn            NextUsn             MaximumSize
+            ------------       --------            -------             -----------
+            130765388729068777 914358272           951411872           33554432
+ 
+            Description
+            -----------
+            Retrieves the USN Journal information on the C: drive.
+ 
+    #>
     [OutputType('System.Journal.UsnJournal')]
     Param ($DriveLetter = 'C:')
     $JournalData = New-Object USN_JOURNAL_DATA

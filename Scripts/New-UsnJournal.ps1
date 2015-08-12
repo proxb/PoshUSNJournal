@@ -1,4 +1,37 @@
 ﻿Function New-UsnJournal {
+﻿        <#
+        .SYNOPSIS
+            Used to create a new USN Journal
+ 
+        .DESCRIPTION
+            Used to create a new USN Journal
+ 
+        .PARAMETER DriveLetter
+            Drive to create journal on. Must be used with colon (:).
+            ex. C:
+ 
+        .PARAMETER Size
+            Maximum size of the USN Journal
+ 
+        .PARAMETER Allocation
+            Allocation size of the USN Journal
+ 
+        .NOTES
+            Name: New-UsnJournal
+            Author: Boe Prox
+ 
+        .EXAMPLE
+            New-UsnJournal -DriveLetter C: -Size 50MB -Allocation 8MB
+ 
+            UsnJournalID       FirstUsn            NextUsn             MaximumSize
+            ------------       --------            -------             -----------
+            130765388729068777 914358272           951411872           33554432
+ 
+            Description
+            -----------
+            Creates a new USN Journal with a maximum size of 50MB and allocation size of 8MB
+            on the C: drive.
+    #>
     [cmdletbinding(
         SupportsShouldProcess = $True
     )]

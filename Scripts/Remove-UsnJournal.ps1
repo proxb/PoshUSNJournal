@@ -1,4 +1,26 @@
 ﻿Function Remove-UsnJournal {
+﻿        <#
+        .SYNOPSIS
+            Used to remove a USN Journal
+ 
+        .DESCRIPTION
+            Used to remove a USN Journal
+ 
+        .PARAMETER DriveLetter
+            Drive to remove journal on. Must be used with colon (:).
+            ex. C:
+ 
+        .NOTES
+            Name: Remove-UsnJournal
+            Author: Boe Prox
+ 
+        .EXAMPLE
+            Remove-UsnJournal -DriveLetter C:
+ 
+            Description
+            -----------
+            Removes the USN Journal from the C: drive.
+    #>
     [cmdletbinding(
         SupportsShouldProcess = $True
     )]

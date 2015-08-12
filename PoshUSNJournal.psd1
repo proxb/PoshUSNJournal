@@ -1,7 +1,7 @@
 ﻿
 #
 # PoshUSNJournal
-# Version 0.4.1.0
+# Version 0.4.3.0
 #
 # Module manifest for module 'PoshUSNJournal'
 #
@@ -16,7 +16,7 @@
 ModuleToProcess = 'PoshUSNJournal.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.4.1.0'
+ModuleVersion = '0.4.3.0'
 
 # ID used to uniquely identify this module
 GUID = 'e1ef944e-38f4-4024-85cc-7140088c8b03'

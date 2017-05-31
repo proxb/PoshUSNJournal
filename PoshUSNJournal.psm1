@@ -551,7 +551,7 @@ Function NewUsnEntry {
         $IsFolder = $True    
     }
     [pscustomobject]@{
-        FileName = $Name
+        Name = $Name
         FullName = GetFilePath -PFileRefNumber $USN_RECORD.ParentFileReferenceNumber -VolumeHandle $VolumeHandle -DriveLetter $DriveLetter -File $Name
         TimeStamp = [DateTime]::FromFileTime($USN_RECORD.TimeStamp)
         Reason = ConvertToUsnReason $USN_RECORD.Reason
@@ -566,8 +566,8 @@ Function NewUsnEntry {
     #endregion Object Creation
 }
 Function OpenUSNJournal {
-    Param ($DriveLetter = 'c:')
-
+    Param ($DriveLetter)
+    Write-Verbose "[OpenUSNJournal] DriveLetter: $DriveLetter"
     $FileName = "\\.\$DriveLetter"
     $Access = [System.IO.FileAccess]::Read -BOR [System.IO.FileAccess]::Write
     $ShareAccess = [System.IO.FileShare]::Read -BOR [System.IO.FileShare]::Write
@@ -584,12 +584,13 @@ Function OpenUSNJournal {
     If ($VolumeHandle -eq -1) {
         Write-Warning ("CreateFile failed: 0x{0:x}" -f [System.Runtime.InteropServices.Marshal]::GetHRForLastWin32Error())
     } Else {
+        Write-Verbose "[OpenUSNJournal] VolumeHandle: $VolumeHandle"
         $VolumeHandle
     }
 }
 Function GetFilePath {
     Param (
-        [int64]$PFileRefNumber, 
+        [uint64]$PFileRefNumber, 
         [IntPtr]$VolumeHandle,
         [string]$DriveLetter,
         [string]$File
@@ -667,7 +668,8 @@ Try {
         $Function = Split-Path $_ -Leaf
         . $_
     }
-} Catch {
+} 
+Catch {
     Write-Warning ("{0}: {1}" -f $Function,$_.Exception.Message)
     Continue
 }

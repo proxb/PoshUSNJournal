@@ -1,36 +1,19 @@
 ﻿Function Get-UsnJournal {
-﻿        <#
-        .SYNOPSIS
-            Used to pull the USN Journal information
- 
-        .DESCRIPTION
-            Used to pull the USN Journal information
- 
-        .PARAMETER DriveLetter
-            Drive to look at USNJournal. Must be used with colon (:).
-            ex. C:
- 
-        .NOTES
-            Name: Get-UsnJournal
-            Author: Boe Prox
- 
-        .EXAMPLE
-            Get-UsnJournal -DriveLetter C:
- 
-            UsnJournalID       FirstUsn            NextUsn             MaximumSize
-            ------------       --------            -------             -----------
-            130765388729068777 914358272           951411872           33554432
- 
-            Description
-            -----------
-            Retrieves the USN Journal information on the C: drive.
- 
-    #>
     [OutputType('System.Journal.UsnJournal')]
-    Param ($DriveLetter = 'C:')
+    [cmdletbinding(
+        DefaultParameterSetName = '__DefaultParameterSet'
+    )]
+    Param (
+        [parameter(ParameterSetName='DriveLetter')]
+        [string]$DriveLetter = 'C:',
+        [parameter(ParameterSetName='Handle')]
+        [intptr]$VolumeHandle
+    )
     $JournalData = New-Object USN_JOURNAL_DATA
     [long]$dwBytes=0
-    $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
+    If ($PSBoundParameters.ContainsKey('DriveLetter')) {
+        $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
+    }
     If ($VolumeHandle -AND $VolumeHandle -ne -1) {
         $return = [PoshChJournal]::DeviceIoControl(
             $VolumeHandle,

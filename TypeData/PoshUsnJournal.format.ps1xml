@@ -66,7 +66,7 @@
             <Alignment>Left</Alignment>
           </TableColumnHeader>
           <TableColumnHeader>
-            <Label>FileName</Label>
+            <Label>Name</Label>
             <Width>30</Width>
             <Alignment>Left</Alignment>
           </TableColumnHeader>
@@ -86,7 +86,7 @@
                 <PropertyName>USN</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
-                <PropertyName>FileName</PropertyName>
+                <PropertyName>Name</PropertyName>
               </TableColumnItem>
               <TableColumnItem>
                 <PropertyName>Reason</PropertyName>

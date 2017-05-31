@@ -117,9 +117,11 @@
     If (-NOT $PSBoundParameters.ContainsKey('ReasonMask')) {
         $ReasonMask = [USN_REASON]([USN_REASON].GetEnumNames())
     }
+    Write-Debug "DriveLetter: $($DriveLetter)"
     $VolumeHandle = OpenUSNJournal -DriveLetter $DriveLetter
+    Write-Debug "VolumeHandle: $($VolumeHandle)"
     If ($VolumeHandle) {
-        $JournalData = Get-USNJournal -DriveLetter $DriveLetter
+        $JournalData = Get-USNJournal -VolumeHandle $VolumeHandle
     }
     If ($JournalData) {
         Write-Verbose 'Creating buffer'
@@ -184,7 +186,7 @@
                     Write-Verbose 'Checking for more data'
                     While ($NextUsn -ge $JournalData.NextUsn) {
                         Start-Sleep -Milliseconds 500
-                        $JournalData = Get-USNJournal -DriveLetter $DriveLetter
+                        $JournalData = Get-USNJournal -VolumeHandle $VolumeHandle                    
                     }
                 }
                 If ($PSBoundParameters.ContainsKey('Paging')) {
